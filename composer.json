@@ -1,0 +1,15 @@
+{
+    "name": "parcel-map/parcel-map",
+    "description": "Web application for displaying cadastral parcels",
+    "type": "project",
+    "license": "MIT",
+    "minimum-stability": "stable",
+    "require": {
+        "php": "^8.4"
+    },
+    "autoload": {
+        "psr-4": {
+            "ParcelMap\\": "app/"
+        }
+    }
+}

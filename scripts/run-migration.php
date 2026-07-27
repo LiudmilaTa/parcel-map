@@ -6,6 +6,7 @@ require_once __DIR__ . '/../vendor/autoload.php';
 
 use ParcelMap\Database\Connection;
 
+// Create the database connection.
 $connection = new Connection(
     '127.0.0.1',
     3306,
@@ -33,6 +34,8 @@ if ($sql === false) {
     );
 }
 
+
+// Execute the migration SQL.
 $pdo->exec($sql);
 
 echo "Migration executed successfully." . PHP_EOL;

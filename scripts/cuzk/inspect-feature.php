@@ -12,6 +12,7 @@ if ($xml === false) {
 
 $namespaces = $xml->getNamespaces(true);
 
+// Register namespaces used in the CUZK XML.
 $xml->registerXPathNamespace('wfs', 'http://www.opengis.net/wfs/2.0');
 $xml->registerXPathNamespace('cp', 'http://inspire.ec.europa.eu/schemas/cp/4.0');
 $xml->registerXPathNamespace('gml', 'http://www.opengis.net/gml/3.2');
@@ -29,6 +30,7 @@ echo "gml:id: " . ($parcel->attributes('gml', true)['id'] ?? '') . PHP_EOL;
 
 echo PHP_EOL . "=== Attributes ===" . PHP_EOL;
 
+// Print all elements from the CP namespace.
 foreach ($parcel->children('cp', true) as $element) {
     echo $element->getName() . ': ' . trim((string) $element) . PHP_EOL;
 }

@@ -24,28 +24,20 @@ if ($xml === false) {
     );
 }
 
-/*
- * Initialize Proj4php.
- */
+// Initialize Proj4php.
 $proj4 = new Proj4php();
 
-/*
- * Initialize coordinate transformation service.
- */
+// Initialize the coordinate transformation service.
 $coordinateTransformService = new CoordinateTransformService(
     $proj4
 );
 
-/*
- * Initialize CUZK parcel parser.
- */
+// Initialize the CUZK parcel parser.
 $parser = new CuzkParcelParser(
     $coordinateTransformService
 );
 
-/*
- * Parse CUZK XML and convert parcels to GeoJSON.
- */
+// Parse CUZK XML and convert parcels to GeoJSON.
 $geoJson = $parser->parse($xml);
 
 echo '<pre>';

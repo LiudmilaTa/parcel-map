@@ -13,19 +13,20 @@ final class ParcelRepository
     ) {
     }
 
-    /**
-     * Insert a new parcel or update an existing parcel by CUZK ID.
-     *
-     * @param array{
-     *     id: string,
-     *     label: string|null,
-     *     nationalCadastralReference: string|null,
-     *     areaValue: float|null,
-     *     geometry: array<string, mixed>
-     * } $parcel
-     */
+    /*
+    Insert a new parcel or update an existing parcel by CUZK ID.
+    
+    @param array{
+        id: string,
+        label: string|null,
+        nationalCadastralReference: string|null,
+        areaValue: float|null,
+        geometry: array<string, mixed>
+    } $parcel
+    */
     public function save(array $parcel): void
     {
+        // Insert a new parcel or update it if the CUZK ID already exists.
         $sql = <<<'SQL'
             INSERT INTO parcels (
                 cuzk_id,
@@ -48,6 +49,7 @@ final class ParcelRepository
                 geometry = VALUES(geometry)
             SQL;
 
+        // Prepare the query to safely insert the parcel data.
         $statement = $this->pdo->prepare($sql);
 
         $statement->execute([

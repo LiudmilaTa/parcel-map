@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../vendor/autoload.php';
 
+// Build the CUZK WFS DescribeFeatureType URL.
 $url = 'https://services.cuzk.gov.cz/wfs/inspire-cp-wfs.asp'
     . '?service=WFS'
     . '&request=DescribeFeatureType'
     . '&version=2.0.0'
     . '&typeNames=cp:CadastralParcel';
 
+// Fetch the XML schema from CUZK.
 $response = file_get_contents($url);
 
 if ($response === false) {

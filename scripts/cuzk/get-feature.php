@@ -12,6 +12,7 @@ $params = [
     'count' => '5',
 ];
 
+// Build the GetFeature request URL.
 $url = 'https://services.cuzk.gov.cz/wfs/inspire-cp-wfs.asp?'
     . http_build_query($params);
 
@@ -23,6 +24,7 @@ if ($response === false) {
 
 $file = __DIR__ . '/../../storage/cuzk/sample-parcels.xml';
 
+// Save the returned parcels to a local XML file.
 file_put_contents($file, $response);
 
 echo "GetFeature saved to: {$file}" . PHP_EOL;

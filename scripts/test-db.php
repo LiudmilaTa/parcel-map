@@ -6,6 +6,7 @@ require_once __DIR__ . '/../vendor/autoload.php';
 
 use ParcelMap\Database\Connection;
 
+// Load database configuration from .env.
 $env = parse_ini_file(__DIR__ . '/../.env');
 
 $connection = new Connection(

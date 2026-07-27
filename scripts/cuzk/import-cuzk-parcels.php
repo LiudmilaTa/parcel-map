@@ -27,9 +27,7 @@ if ($xml === false) {
     );
 }
 
-/*
- * Database connection
- */
+// Create the database connection.
 $connection = new Connection(
     '127.0.0.1',
     3306,
@@ -40,9 +38,7 @@ $connection = new Connection(
 
 $pdo = $connection->getPdo();
 
-/*
- * Services
- */
+// Create the required services.
 $proj4 = new Proj4php();
 
 $coordinateTransformService = new CoordinateTransformService(
@@ -57,9 +53,7 @@ $repository = new ParcelRepository(
     $pdo
 );
 
-/*
- * Parse CUZK XML
- */
+// Parse the CUZK XML into GeoJSON.
 $geoJson = $parser->parse($xml);
 
 $features = $geoJson['features'];
@@ -70,9 +64,7 @@ if (!is_array($features)) {
     );
 }
 
-/*
- * Import parcels
- */
+// Save each parcel to the database.
 $imported = 0;
 
 foreach ($features as $feature) {

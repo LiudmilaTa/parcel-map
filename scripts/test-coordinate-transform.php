@@ -13,13 +13,7 @@ $coordinateTransformService = new CoordinateTransformService(
     $proj4
 );
 
-/*
- * Real coordinate from:
- *
- * storage/cuzk/sample-parcels.xml
- *
- * CRS: EPSG:5514
- */
+// Real coordinate from storage/cuzk/sample-parcels.xml.
 $sourceX = -726297.24;
 $sourceY = -942104.55;
 

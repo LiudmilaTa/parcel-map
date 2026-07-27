@@ -19,6 +19,7 @@ final class Connection
 
     public function getPdo(): PDO
     {
+        // Build the MySQL connection string.
         $dsn = sprintf(
             'mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4',
             $this->host,

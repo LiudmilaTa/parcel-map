@@ -13,6 +13,7 @@ $pdo = new PDO(
     ]
 );
 
+// Check the database connection
 echo "PDO connection successful." . PHP_EOL;
 
 $result = $pdo->query('SELECT DATABASE() AS db, USER() AS user')->fetch();

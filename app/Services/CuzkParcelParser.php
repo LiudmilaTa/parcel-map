@@ -11,27 +11,23 @@ final class CuzkParcelParser
 {
     private const GML_NAMESPACE = 'http://www.opengis.net/gml/3.2';
     private const CP_NAMESPACE = 'http://inspire.ec.europa.eu/schemas/cp/4.0';
-
+    private const BASE_NAMESPACE = 'http://inspire.ec.europa.eu/schemas/base/3.0';
+    private const XLINK_NAMESPACE = 'http://www.w3.org/1999/xlink';
+    
     public function __construct(
         private readonly CoordinateTransformService $coordinateTransformService
     ) {
     }
 
-    /*
-    Parse CUZK WFS XML and return GeoJSON FeatureCollection.
-    
-    @return array<string, mixed>
-    */
+    //Parse CUZK WFS XML and return GeoJSON FeatureCollection.
     public function parse(string $xml): array
     {
-        // Convert the XML string into a SimpleXMLElement.
         $document = simplexml_load_string($xml);
 
         if ($document === false) {
             throw new RuntimeException('Failed to parse CUZK XML.');
         }
 
-        // Register the namespace used to find cadastral parcels.
         $document->registerXPathNamespace('cp', self::CP_NAMESPACE);
 
         $parcels = $document->xpath('//cp:CadastralParcel');
@@ -50,58 +46,84 @@ final class CuzkParcelParser
             }
         }
 
-        // Return all parsed parcels as a GeoJSON FeatureCollection.
         return [
             'type' => 'FeatureCollection',
             'features' => $features,
         ];
     }
 
-    /**
-     * @return array<string, mixed>|null
-     */
-    private function parseParcel(SimpleXMLElement $parcel): ?array
+    // Parse a single CUZK parcel XML document.
+    public function parseSingleParcel(string $xml): ?array
     {
-        // Register namespaces used to access parcel geometry and data.
-        $parcel->registerXPathNamespace('gml', self::GML_NAMESPACE);
-        $parcel->registerXPathNamespace('cp', self::CP_NAMESPACE);
+        $document = simplexml_load_string($xml);
 
-        $polygon = $parcel->xpath('./cp:geometry/gml:Polygon');
+        if ($document === false) {
+            throw new RuntimeException(
+                'Failed to parse CUZK parcel XML.'
+            );
+        }
 
-        if ($polygon === false || count($polygon) === 0) {
+        $document->registerXPathNamespace(
+            'cp',
+            self::CP_NAMESPACE
+        );
+
+        $parcels = $document->xpath(
+            '//cp:CadastralParcel'
+        );
+
+        if (
+            $parcels === false
+            || count($parcels) === 0
+        ) {
             return null;
         }
 
-        $polygon = $polygon[0];
+        return $this->parseParcel(
+            $parcels[0]
+        );
+    }
 
-        $coordinates = [];
+    private function parseParcel(SimpleXMLElement $parcel): ?array
+    {
+        $parcel->registerXPathNamespace('gml', self::GML_NAMESPACE);
+        $parcel->registerXPathNamespace('cp', self::CP_NAMESPACE);
+        $parcel->registerXPathNamespace('base', self::BASE_NAMESPACE);
+        $parcel->registerXPathNamespace('xlink', self::XLINK_NAMESPACE);
 
-        $exterior = $polygon->xpath(
+        $polygonResult = $parcel->xpath('./cp:geometry/gml:Polygon');
+
+        if ($polygonResult === false || count($polygonResult) === 0) {
+            return null;
+        }
+
+        $polygon = $polygonResult[0];
+
+        $exteriorResult = $polygon->xpath(
             './gml:exterior/gml:LinearRing/gml:posList'
         );
 
-        if ($exterior === false || count($exterior) === 0) {
+        if ($exteriorResult === false || count($exteriorResult) === 0) {
             return null;
         }
 
-        // Parse the outer boundary of the polygon.
         $exteriorCoordinates = $this->parsePosList(
-            (string) $exterior[0]
+            (string) $exteriorResult[0]
         );
 
         if ($exteriorCoordinates === []) {
             return null;
         }
 
+        $coordinates = [];
         $coordinates[] = $exteriorCoordinates;
 
-        // Parse inner boundaries (holes) if they exist.
-        $interiors = $polygon->xpath(
+        $interiorResult = $polygon->xpath(
             './gml:interior/gml:LinearRing/gml:posList'
         );
 
-        if ($interiors !== false) {
-            foreach ($interiors as $interior) {
+        if ($interiorResult !== false) {
+            foreach ($interiorResult as $interior) {
                 $interiorCoordinates = $this->parsePosList(
                     (string) $interior
                 );
@@ -112,38 +134,84 @@ final class CuzkParcelParser
             }
         }
 
-        $attributes = [
-            'id' => $this->getGmlId($parcel),
-            'label' => $this->getValue($parcel, './cp:label'),
-            'nationalCadastralReference' => $this->getValue(
-                $parcel,
-                './cp:nationalCadastralReference'
-            ),
-            'areaValue' => $this->getAreaValue($parcel),
-        ];
+        //Calculate bounding box from transformed coordinates.
+        $bbox = $this->calculateBoundingBox(
+            $coordinates
+        );
 
-        // Build a GeoJSON Feature from the parsed parcel data.
+        $gmlId = $this->getGmlId($parcel);
+
+        $localId = $this->getValue(
+            $parcel,
+            './cp:inspireId/base:Identifier/base:localId'
+        );
+
+        $label = $this->getValue(
+            $parcel,
+            './cp:label'
+        );
+
+        $nationalCadastralReference = $this->getValue(
+            $parcel,
+            './cp:nationalCadastralReference'
+        );
+
+        $areaValue = $this->getAreaValue(
+            $parcel
+        );
+
+        $zoningName = $this->getXlinkTitle(
+            $parcel,
+            './cp:zoning'
+        );
+
+        $administrativeUnitName = $this->getXlinkTitle(
+            $parcel,
+            './cp:administrativeUnit'
+        );
+
         return [
             'type' => 'Feature',
-            'id' => $attributes['id'],
-            'properties' => $attributes,
+
+            'id' => $gmlId,
+
+            'properties' => [
+                'id' => $gmlId,
+
+                'localId' => $localId,
+
+                'label' => $label,
+
+                'nationalCadastralReference' =>
+                    $nationalCadastralReference,
+
+                'areaValue' => $areaValue,
+
+                'zoningName' => $zoningName,
+
+                'administrativeUnitName' =>
+                    $administrativeUnitName,
+
+                'minX' => $bbox['minX'],
+
+                'minY' => $bbox['minY'],
+
+                'maxX' => $bbox['maxX'],
+
+                'maxY' => $bbox['maxY'],
+            ],
+
             'geometry' => [
                 'type' => 'Polygon',
+
                 'coordinates' => $coordinates,
             ],
         ];
     }
 
-    /*
-    Parse GML posList:
-    X1 Y1 X2 Y2 X3 Y3 ...
-    Convert EPSG:5514 -> EPSG:4326.
-    
-    @return array<int, array<int, float>>
-    */
+    // Convert GML coordinate pairs from EPSG:5514 to GeoJSON coordinates.
     private function parsePosList(string $posList): array
     {
-        // Split the coordinate string into individual values.
         $values = preg_split('/\s+/', trim($posList));
 
         if ($values === false || count($values) < 4) {
@@ -168,6 +236,51 @@ final class CuzkParcelParser
         }
 
         return $coordinates;
+    }
+
+    // Calculate bounding box from GeoJSON coordinates.
+    private function calculateBoundingBox(
+        array $coordinates
+    ): array {
+        $minX = INF;
+        $minY = INF;
+
+        $maxX = -INF;
+        $maxY = -INF;
+
+        foreach ($coordinates as $ring) {
+            foreach ($ring as $coordinate) {
+                $x = $coordinate[0];
+                $y = $coordinate[1];
+
+                $minX = min(
+                    $minX,
+                    $x
+                );
+
+                $minY = min(
+                    $minY,
+                    $y
+                );
+
+                $maxX = max(
+                    $maxX,
+                    $x
+                );
+
+                $maxY = max(
+                    $maxY,
+                    $y
+                );
+            }
+        }
+
+        return [
+            'minX' => $minX,
+            'minY' => $minY,
+            'maxX' => $maxX,
+            'maxY' => $maxY,
+        ];
     }
 
     private function getGmlId(SimpleXMLElement $parcel): ?string
@@ -206,5 +319,39 @@ final class CuzkParcelParser
         }
 
         return (float) $result[0];
+    }
+
+    private function getXlinkTitle(
+        SimpleXMLElement $parcel,
+        string $xpath
+    ): ?string {
+        $result = $parcel->xpath(
+            $xpath
+        );
+
+        if (
+            $result === false
+            || count($result) === 0
+        ) {
+            return null;
+        }
+
+        $attributes = $result[0]->attributes(
+            self::XLINK_NAMESPACE
+        );
+
+        $title = $attributes['title'] ?? null;
+
+        if ($title === null) {
+            return null;
+        }
+
+        $value = trim(
+            (string) $title
+        );
+
+        return $value !== ''
+            ? $value
+            : null;
     }
 }

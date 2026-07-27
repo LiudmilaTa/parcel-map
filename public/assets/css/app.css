@@ -1,0 +1,93 @@
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+}
+
+.app {
+    width: 100%;
+    height: 100vh;
+
+    display: flex;
+    flex-direction: column;
+}
+
+.app-header {
+    height: 60px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 0 20px;
+
+    background: #ffffff;
+
+    border-bottom: 1px solid #dddddd;
+}
+
+.app-header h1 {
+    margin: 0;
+
+    font-size: 20px;
+}
+
+.app-status {
+    display: flex;
+    gap: 20px;
+
+    color: #666666;
+
+    font-size: 14px;
+}
+
+.app-main {
+    flex: 1;
+
+    min-height: 0;
+
+    position: relative;
+}
+
+#map {
+    width: 100%;
+    height: 100%;
+}
+
+#map.loading {
+    cursor: wait;
+}
+
+.parcel-popup {
+    min-width: 220px;
+}
+
+.parcel-popup-title {
+    margin-bottom: 10px;
+
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.parcel-popup-row {
+    margin-bottom: 5px;
+
+    font-size: 13px;
+}
+
+.parcel-popup-label {
+    font-weight: 600;
+}

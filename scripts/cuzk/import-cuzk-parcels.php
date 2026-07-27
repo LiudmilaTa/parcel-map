@@ -9,9 +9,10 @@ use ParcelMap\Repositories\ParcelRepository;
 use ParcelMap\Services\CoordinateTransformService;
 use ParcelMap\Services\CuzkParcelParser;
 use proj4php\Proj4php;
+use XMLReader;
 
-$xmlFile = __DIR__
-    . '/../../storage/cuzk/sample-parcels.xml';
+
+$xmlFile = __DIR__ . '/../../storage/cuzk/final/jicin-parcels.xml';
 
 if (!file_exists($xmlFile)) {
     throw new RuntimeException(
@@ -19,15 +20,9 @@ if (!file_exists($xmlFile)) {
     );
 }
 
-$xml = file_get_contents($xmlFile);
+echo "Connecting to MariaDB..." . PHP_EOL;
 
-if ($xml === false) {
-    throw new RuntimeException(
-        'Failed to read CUZK XML file.'
-    );
-}
-
-// Create the database connection.
+// Create database connection.
 $connection = new Connection(
     '127.0.0.1',
     3306,
@@ -37,8 +32,9 @@ $connection = new Connection(
 );
 
 $pdo = $connection->getPdo();
+echo "Connected." . PHP_EOL;
 
-// Create the required services.
+// Initialize services.
 $proj4 = new Proj4php();
 
 $coordinateTransformService = new CoordinateTransformService(
@@ -53,62 +49,126 @@ $repository = new ParcelRepository(
     $pdo
 );
 
-// Parse the CUZK XML into GeoJSON.
-$geoJson = $parser->parse($xml);
+echo "Parsing CUZK XML..." . PHP_EOL;
 
-$features = $geoJson['features'];
+$reader = new XMLReader();
 
-if (!is_array($features)) {
+if (!$reader->open($xmlFile)) {
     throw new RuntimeException(
-        'Invalid GeoJSON FeatureCollection.'
+        "Failed to open CUZK XML file: {$xmlFile}"
     );
 }
 
-// Save each parcel to the database.
 $imported = 0;
-
-foreach ($features as $feature) {
-    if (!is_array($feature)) {
-        continue;
-    }
-
-    $properties = $feature['properties'] ?? [];
-    $geometry = $feature['geometry'] ?? null;
-
+$skipped = 0;
+while ($reader->read()) {
     if (
-        !is_array($properties)
-        || !isset($properties['id'])
-        || !isset($properties['label'])
-        || !is_array($geometry)
+        $reader->nodeType !== XMLReader::ELEMENT
+        || $reader->localName !== 'CadastralParcel'
     ) {
         continue;
     }
 
-    $repository->save([
-        'id' => (string) $properties['id'],
-        'label' => $properties['label'] !== null
-            ? (string) $properties['label']
-            : null,
-        'nationalCadastralReference' =>
-            $properties['nationalCadastralReference'] !== null
-                ? (string) $properties['nationalCadastralReference']
+    $parcelXml = $reader->readOuterXml();
+
+    if ($parcelXml === '') {
+        $skipped++;
+
+        continue;
+    }
+
+    try {
+        $feature = $parser->parseSingleParcel(
+            $parcelXml
+        );
+
+        if ($feature === null) {
+            $skipped++;
+
+            continue;
+        }
+
+        $properties = $feature['properties'] ?? null;
+        $geometry = $feature['geometry'] ?? null;
+
+        if (
+            !is_array($properties)
+            || !is_array($geometry)
+        ) {
+            $skipped++;
+
+            continue;
+        }
+
+        if (
+            !isset($properties['id'])
+            || !isset($properties['label'])
+        ) {
+            $skipped++;
+
+            continue;
+        }
+
+        $repository->save([
+            'cuzk_id' => (string) $properties['id'],
+
+            'local_id' => isset($properties['localId'])
+                ? (string) $properties['localId']
                 : null,
-        'areaValue' => $properties['areaValue'] !== null
-            ? (float) $properties['areaValue']
-            : null,
-        'geometry' => $geometry,
-    ]);
 
-    $imported++;
+            'label' => (string) $properties['label'],
 
-    echo sprintf(
-        "Imported parcel: %s (%s)%s",
-        $properties['id'],
-        $properties['label'] ?? 'N/A',
-        PHP_EOL
-    );
+            'national_cadastral_reference' =>
+                isset($properties['nationalCadastralReference'])
+                    ? (string) $properties[
+                        'nationalCadastralReference'
+                    ]
+                    : null,
+
+            'area_value' =>
+                isset($properties['areaValue'])
+                    ? (float) $properties['areaValue']
+                    : null,
+
+            'zoning_name' =>
+                isset($properties['zoningName'])
+                    ? (string) $properties['zoningName']
+                    : null,
+
+            'administrative_unit_name' =>
+                isset($properties['administrativeUnitName'])
+                    ? (string) $properties[
+                        'administrativeUnitName'
+                    ]
+                    : null,
+
+            'min_x' => (float) ($properties['minX'] ?? 0),
+            'min_y' => (float) ($properties['minY'] ?? 0),
+            'max_x' => (float) ($properties['maxX'] ?? 0),
+            'max_y' => (float) ($properties['maxY'] ?? 0),
+
+            'geometry' => $geometry,
+        ]);
+
+        $imported++;
+
+        if ($imported % 1000 === 0) {
+            echo "Imported {$imported} parcels..."
+                . PHP_EOL;
+        }
+    } catch (Throwable $exception) {
+        $skipped++;
+
+        echo sprintf(
+            "Skipped parcel: %s",
+            $exception->getMessage()
+        ) . PHP_EOL;
+    }
 }
+
+$reader->close();
 
 echo PHP_EOL;
 echo "Import completed." . PHP_EOL;
-echo "Processed parcels: {$imported}" . PHP_EOL;
+echo "Imported parcels: {$imported}" . PHP_EOL;
+echo "Skipped parcels: {$skipped}" . PHP_EOL;

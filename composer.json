@@ -5,7 +5,8 @@
     "license": "MIT",
     "minimum-stability": "stable",
     "require": {
-        "php": "^8.4"
+        "php": "^8.4",
+        "proj4php/proj4php": "*"
     },
     "autoload": {
         "psr-4": {

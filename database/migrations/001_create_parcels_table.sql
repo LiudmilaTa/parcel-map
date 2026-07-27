@@ -1,0 +1,18 @@
+CREATE TABLE IF NOT EXISTS parcels (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+
+    cuzk_id VARCHAR(50) NOT NULL,
+    label VARCHAR(100) NOT NULL,
+    national_cadastral_reference VARCHAR(100) NULL,
+    area_value DECIMAL(12, 2) NULL,
+
+    geometry LONGTEXT NOT NULL,
+
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP,
+
+    UNIQUE KEY uq_parcels_cuzk_id (cuzk_id)
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;

@@ -28,15 +28,8 @@ final class CoordinateTransformService
         );
     }
 
-    /*
-    Transform one point from EPSG:5514 to EPSG:4326.
-     
-    @return array{
-        longitude: float,
-        latitude: float,
-        altitude: float|null
-    }
-    */
+    // Transform one point from EPSG:5514 to EPSG:4326.
+    // Returns longitude, latitude and optional altitude.
     public function transformToWgs84(
         float $x,
         float $y
@@ -63,8 +56,8 @@ final class CoordinateTransformService
         ];
     }
 
-     // Transform one coordinate pair to GeoJSON format.
-     // @return array{0: float, 1: float}
+    // Transform one coordinate pair to GeoJSON format.
+    // Returns [longitude, latitude].
 
     public function transformToGeoJsonCoordinate(
         float $x,
@@ -79,13 +72,8 @@ final class CoordinateTransformService
         ];
     }
 
-    /*
-     Transform a list of EPSG:5514 coordinate pairs
-     to GeoJSON coordinate pairs.
-     
-     @param array<int, array{0: float, 1: float}> $coordinates
-     @return array<int, array{0: float, 1: float}>
-     */
+    // Transform a list of EPSG:5514 coordinate pairs
+    // to GeoJSON [longitude, latitude] pairs.
     public function transformCoordinates(
         array $coordinates
     ): array {

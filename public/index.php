@@ -17,32 +17,19 @@ declare(strict_types=1);
 
     <link
         rel="stylesheet"
-        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        href="/vendor/leaflet/leaflet.css"
     >
 
     <link
         rel="stylesheet"
         href="/assets/css/app.css"
     >
+
 </head>
 
 <body>
 
 <div class="app">
-
-    <header class="app-header">
-        <h1>Mapa parcel</h1>
-
-        <div class="app-status">
-            <span id="parcel-count">
-                Parcely: 0
-            </span>
-
-            <span id="map-status">
-                Připraveno
-            </span>
-        </div>
-    </header>
 
     <main class="app-main">
         <div id="map"></div>
@@ -51,8 +38,44 @@ declare(strict_types=1);
 </div>
 
 <script
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    src="/vendor/leaflet/leaflet.min.js?v=1.9.4-p1"
 ></script>
+
+<script>
+    (function patchLeafletFirefoxEventCopy() {
+        if (!window.L || !L.Util || typeof L.Util.extend !== 'function') {
+            return;
+        }
+
+        const originalExtend = L.Util.extend;
+        const blockedKeys = new Set([
+            'mozPressure',
+            'mozInputSource',
+        ]);
+
+        function safeExtend(dest, ...sources) {
+            for (const src of sources) {
+                if (!src) {
+                    continue;
+                }
+
+                for (const key in src) {
+                    if (blockedKeys.has(key)) {
+                        continue;
+                    }
+
+                    dest[key] = src[key];
+                }
+            }
+
+            return dest;
+        }
+
+        L.Util.extend = safeExtend;
+        L.extend = safeExtend;
+        L.Util._originalExtend = originalExtend;
+    })();
+</script>
 
 <script
     src="/assets/js/app.js"

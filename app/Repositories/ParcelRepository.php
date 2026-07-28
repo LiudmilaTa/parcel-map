@@ -118,7 +118,8 @@ final class ParcelRepository
         float $minX,
         float $minY,
         float $maxX,
-        float $maxY
+        float $maxY,
+        ?array $zoningNames = null
     ): array {
         $sql = <<<'SQL'
             SELECT
@@ -141,18 +142,40 @@ final class ParcelRepository
                 AND min_x <= :max_x
                 AND max_y >= :min_y
                 AND min_y <= :max_y
+            SQL;
+
+        $zoningNames = is_array($zoningNames) ? array_values(
+                array_filter(
+                    array_map('trim', $zoningNames),
+                    static fn(string $name): bool => $name !== ''
+                )
+            )
+            : [];
+
+        if (count($zoningNames) > 0) {
+            $placeholders = [];
+
+            foreach ($zoningNames as $index => $name) {
+                $placeholders[] = ':zoning_name_' . $index;
+            }
+
+            $sql .= "\n                AND zoning_name IN (" . implode(', ', $placeholders) . ")";
+        }
+
+        $sql .= <<<'SQL'
             ORDER BY id
             SQL;
 
         $statement = $this->pdo->prepare($sql);
-
-        $statement->execute([
-            'min_x' => $minX,
-            'min_y' => $minY,
-            'max_x' => $maxX,
-            'max_y' => $maxY,
-        ]);
+        $statement->bindValue(':min_x', $minX, PDO::PARAM_STR);
+        $statement->bindValue(':min_y', $minY, PDO::PARAM_STR);
+        $statement->bindValue(':max_x', $maxX, PDO::PARAM_STR);
+        $statement->bindValue(':max_y', $maxY, PDO::PARAM_STR);
+        foreach ($zoningNames as $index => $name) {
+            $statement->bindValue(':zoning_name_' . $index, $name, PDO::PARAM_STR);
+        }
+        $statement->execute();
 
         return $statement->fetchAll();
-    }   
+    }
 }

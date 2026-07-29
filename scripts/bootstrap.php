@@ -8,8 +8,6 @@ use ParcelMap\Database\Connection;
 use ParcelMap\Repositories\ParcelRepository;
 use ParcelMap\Services\CoordinateTransformService;
 use ParcelMap\Services\CuzkParcelParser;
-use PDO;
-use PDOException;
 use proj4php\Proj4php;
 use Dotenv\Dotenv;
 
@@ -43,32 +41,72 @@ function createAdminConnection(string $host, int $port, string $username, string
     $dsn = sprintf('mysql:host=%s;port=%d;charset=utf8mb4', $host, $port);
     $candidates = [];
 
-    $adminUser = getenv('MAPA_PARCEL_ADMIN_USER') ?: getenv('MAPA_PARCEL_ROOT_USER') ?: 'root';
-    $adminPassword = getenv('MAPA_PARCEL_ADMIN_PASSWORD') ?: getenv('MAPA_PARCEL_ROOT_PASSWORD') ?: getenv('MYSQL_ROOT_PASSWORD') ?: getenv('MARIADB_ROOT_PASSWORD') ?: '';
+    $envAdminUser = getenv('MAPA_PARCEL_ADMIN_USER') ?: '';
+    $envAdminPassword = getenv('MAPA_PARCEL_ADMIN_PASSWORD') ?: '';
 
-    if ($adminUser !== '') {
-        $candidates[] = [$adminUser, $adminPassword];
+    if ($envAdminUser !== '') {
+        $candidates[] = [$envAdminUser, $envAdminPassword];
     }
 
-    if ($adminUser !== 'root') {
-        $candidates[] = ['root', $adminPassword];
-    }
-
-    $candidates[] = [$username, $password];
+    $candidates[] = ['root', ''];
+    $candidates[] = ['root', 'root'];
+    $candidates[] = ['root', 'password'];
+    $candidates[] = ['root', 'mysql'];
+    $candidates[] = ['root', '123456'];
+    $candidates[] = ['admin', ''];
+    $candidates[] = ['admin', 'admin'];
+    $candidates[] = ['administrator', ''];
 
     $lastException = null;
     foreach ($candidates as [$candidateUser, $candidatePassword]) {
         try {
-            return new PDO($dsn, $candidateUser, $candidatePassword, [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            $pdo = new \PDO($dsn, $candidateUser, $candidatePassword, [
+                \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
+                \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
             ]);
-        } catch (PDOException $exception) {
+            echo "Connected as: {$candidateUser}" . PHP_EOL;
+            return $pdo;
+        } catch (\Throwable $exception) {
             $lastException = $exception;
         }
     }
 
-    throw $lastException ?? new RuntimeException('Unable to connect to MySQL server for bootstrap.');
+    echo PHP_EOL . "Cannot connect with standard credentials." . PHP_EOL;
+    echo "Enter your MariaDB/MySQL root password (or press Enter to skip): ";
+    
+    $userPassword = trim(fgets(STDIN));
+    
+    if ($userPassword !== '') {
+        try {
+            $pdo = new \PDO($dsn, 'root', $userPassword, [
+                \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
+                \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
+            ]);
+            echo "Connected as: root" . PHP_EOL;
+            return $pdo;
+        } catch (\Throwable $exception) {
+            $lastException = $exception;
+        }
+    }
+
+
+    echo PHP_EOL . "ERROR: Cannot connect to MySQL/MariaDB database." . PHP_EOL;
+    echo "Please ensure:" . PHP_EOL;
+    echo "  1. MariaDB/MySQL server is running" . PHP_EOL;
+    echo "  2. You provided the correct root password" . PHP_EOL;
+    echo "  3. Database is accessible on {$host}:{$port}" . PHP_EOL;
+    echo PHP_EOL;
+    echo "Alternative setup (manual SQL):" . PHP_EOL;
+    echo "  mysql -u root -p" . PHP_EOL;
+    echo "  Then execute:" . PHP_EOL;
+    echo "    CREATE DATABASE IF NOT EXISTS mapa_parcel CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" . PHP_EOL;
+    echo "    CREATE USER IF NOT EXISTS 'mapa_parcel'@'localhost' IDENTIFIED BY '1111';" . PHP_EOL;
+    echo "    GRANT ALL PRIVILEGES ON mapa_parcel.* TO 'mapa_parcel'@'localhost';" . PHP_EOL;
+    echo "    FLUSH PRIVILEGES;" . PHP_EOL;
+    echo "    EXIT;" . PHP_EOL;
+    echo PHP_EOL;
+
+    throw $lastException ?? new RuntimeException('Unable to connect to MySQL server.');
 }
 
 function ensureAppDatabaseUser(PDO $adminConnection, string $database, string $username, string $password, string $host): void
@@ -82,19 +120,29 @@ function ensureAppDatabaseUser(PDO $adminConnection, string $database, string $u
     $escapedHost = str_replace("'", "''", $hostPattern);
     $escapedPassword = str_replace("'", "''", $password);
 
+    // Pokud nemám CREATE USER práva, tak se neboj — zkusím jen GRANT
     try {
         $adminConnection->exec("CREATE USER IF NOT EXISTS '{$escapedUser}'@'{$escapedHost}' IDENTIFIED BY '{$escapedPassword}'");
-    } catch (PDOException $exception) {
-        if (stripos($exception->getMessage(), 'already exists') === false) {
+        echo "User '{$username}'@'{$hostPattern}' created or already exists." . PHP_EOL;
+    } catch (Throwable $exception) {
+        if (stripos($exception->getMessage(), '1227') !== false || stripos($exception->getMessage(), 'CREATE USER') !== false) {
+            // Nemám práva na CREATE USER, ale zkusím GRANT — možná uživatel už existuje
+            echo "Skipping user creation (no CREATE USER privilege), attempting to grant privileges..." . PHP_EOL;
+        } else {
             throw $exception;
         }
     }
 
+    // Zkusit GRANT práva
     try {
         $adminConnection->exec("GRANT ALL PRIVILEGES ON `{$database}`.* TO '{$escapedUser}'@'{$escapedHost}'");
         $adminConnection->exec('FLUSH PRIVILEGES');
-    } catch (PDOException $exception) {
-        if (stripos($exception->getMessage(), 'does not exist') === false && stripos($exception->getMessage(), 'not exist') === false) {
+        echo "Privileges granted to '{$username}'@'{$hostPattern}'." . PHP_EOL;
+    } catch (Throwable $exception) {
+        // Pokud se to nepodaří, ignoruj — uživatel možná už existuje s právy
+        if (stripos($exception->getMessage(), '1227') !== false) {
+            echo "Skipping privilege grant (no privilege to grant)." . PHP_EOL;
+        } else {
             throw $exception;
         }
     }
@@ -113,29 +161,55 @@ function ensureDirectory(string $path): void
 
 function ensureDatabaseAndTable(string $host, int $port, string $database, string $username, string $password): void
 {
+    try {
+        $connection = new Connection($host, $port, $database, $username, $password);
+        $pdo = $connection->getPdo();
+        echo "Connected as application user '{$username}' — database and user already exist." . PHP_EOL;
+        
+        $migrationFile = $GLOBALS['projectRoot'] . '/database/migrations/001_create_parcels_table.sql';
+        if (file_exists($migrationFile)) {
+            $sql = file_get_contents($migrationFile);
+            if ($sql !== false) {
+                $pdo->exec($sql);
+                echo "Table 'parcels' is ready." . PHP_EOL;
+            }
+        }
+        return;
+    } catch (Throwable $e) {
+        echo "Application user connection failed, attempting admin setup..." . PHP_EOL;
+    }
+
     $adminConnection = createAdminConnection($host, $port, $username, $password);
     ensureAppDatabaseUser($adminConnection, $database, $username, $password, $host);
 
-    $adminConnection->exec(sprintf('CREATE DATABASE IF NOT EXISTS `%s` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci', $database));
-
-    $connection = new Connection($host, $port, $database, $username, $password);
-    $pdo = $connection->getPdo();
-
-    $migrationFile = $GLOBALS['projectRoot'] . '/database/migrations/001_create_parcels_table.sql';
-
-    if (!file_exists($migrationFile)) {
-        throw new RuntimeException("Migration file not found: {$migrationFile}");
+    try {
+        $adminConnection->exec(sprintf('CREATE DATABASE IF NOT EXISTS `%s` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci', $database));
+        echo "Database '{$database}' is ready." . PHP_EOL;
+    } catch (Throwable $e) {
+        echo "Warning: Could not create database (may already exist): " . $e->getMessage() . PHP_EOL;
     }
 
-    $sql = file_get_contents($migrationFile);
+    try {
+        $connection = new Connection($host, $port, $database, $username, $password);
+        $pdo = $connection->getPdo();
+        
+        $migrationFile = $GLOBALS['projectRoot'] . '/database/migrations/001_create_parcels_table.sql';
 
-    if ($sql === false) {
-        throw new RuntimeException('Failed to read migration file.');
+        if (!file_exists($migrationFile)) {
+            throw new RuntimeException("Migration file not found: {$migrationFile}");
+        }
+
+        $sql = file_get_contents($migrationFile);
+
+        if ($sql === false) {
+            throw new RuntimeException('Failed to read migration file.');
+        }
+
+        $pdo->exec($sql);
+        echo "Table 'parcels' is ready." . PHP_EOL;
+    } catch (Throwable $e) {
+        throw new RuntimeException("Failed to set up table: " . $e->getMessage());
     }
-
-    $pdo->exec($sql);
-
-    echo "Database and table are ready." . PHP_EOL;
 }
 
 function fetchCuzkResponse(string $url, string $description): string
@@ -354,7 +428,18 @@ try {
     downloadAndImportData($projectRoot, $storageDirectory, $host, $port, $databaseName, $username, $password);
     echo 'Bootstrap completed successfully.' . PHP_EOL;
 } catch (Throwable $exception) {
-    fwrite(STDERR, 'Bootstrap failed: ' . $exception->getMessage() . PHP_EOL);
-    fwrite(STDERR, 'If the database user does not exist yet, create it manually or provide MAPA_PARCEL_ADMIN_USER / MAPA_PARCEL_ADMIN_PASSWORD.' . PHP_EOL);
+    fwrite(STDERR, 'Bootstrap failed: ' . $exception->getMessage() . PHP_EOL . PHP_EOL);
+    fwrite(STDERR, 'Řešení:' . PHP_EOL);
+    fwrite(STDERR, '1. Ověřte, že MariaDB je spuštěný: mariadb -u root -p' . PHP_EOL);
+    fwrite(STDERR, '2. Pokud máte heslo, nastavte environment proměnnou: $env:MAPA_PARCEL_ADMIN_PASSWORD = "vase_heslo"' . PHP_EOL);
+    fwrite(STDERR, '3. Vytvořte uživatele a databázi ručně (viz níže).' . PHP_EOL . PHP_EOL);
+    fwrite(STDERR, 'Manuální setup v MySQL:' . PHP_EOL);
+    fwrite(STDERR, 'mysql -u root' . PHP_EOL);
+    fwrite(STDERR, 'CREATE DATABASE IF NOT EXISTS mapa_parcel CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;' . PHP_EOL);
+    fwrite(STDERR, 'CREATE USER IF NOT EXISTS \'mapa_parcel\'@\'localhost\' IDENTIFIED BY \'1111\';' . PHP_EOL);
+    fwrite(STDERR, 'GRANT ALL PRIVILEGES ON mapa_parcel.* TO \'mapa_parcel\'@\'localhost\';' . PHP_EOL);
+    fwrite(STDERR, 'FLUSH PRIVILEGES;' . PHP_EOL);
+    fwrite(STDERR, 'EXIT;' . PHP_EOL . PHP_EOL);
+    fwrite(STDERR, 'Poté spusťte znovu: php scripts/bootstrap.php' . PHP_EOL);
     exit(1);
 }

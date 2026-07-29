@@ -4,18 +4,31 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../vendor/autoload.php';
 
+use Dotenv\Dotenv;
 use ParcelMap\Database\Connection;
 use ParcelMap\Repositories\ParcelRepository;
 
 header('Content-Type: application/json; charset=utf-8');
 
 try {
+    $projectRoot = dirname(__DIR__, 2);
+
+    if (file_exists($projectRoot . '/.env')) {
+        Dotenv::createImmutable($projectRoot)->safeLoad();
+    }
+
+    $databaseName = getenv('MAPA_PARCEL_DB') ?: 'mapa_parcel';
+    $username = getenv('MAPA_PARCEL_USER') ?: 'mapa_parcel';
+    $password = getenv('MAPA_PARCEL_PASSWORD') ?: '1111';
+    $host = getenv('MAPA_PARCEL_HOST') ?: '127.0.0.1';
+    $port = (int) (getenv('MAPA_PARCEL_PORT') ?: '3306');
+
     $connection = new Connection(
-        '127.0.0.1',
-        3306,
-        'mapa_parcel',
-        'mapa_parcel',
-        '1111'
+        $host,
+        $port,
+        $databaseName,
+        $username,
+        $password
     );
 
     $pdo = $connection->getPdo();
@@ -74,7 +87,10 @@ try {
         $coordinates
     );
 
-    if ($minX >= $maxX || $minY >= $maxY) {
+    if (
+        $minX >= $maxX
+        || $minY >= $maxY
+    ) {
         http_response_code(400);
 
         echo json_encode(
@@ -85,6 +101,7 @@ try {
             | JSON_UNESCAPED_SLASHES
             | JSON_THROW_ON_ERROR
         );
+
         exit;
     }
 
@@ -152,17 +169,32 @@ try {
 
         $features[] = [
             'type' => 'Feature',
+
             'id' => (int) $parcel['id'],
+
             'geometry' => $geometry,
+
             'properties' => [
                 'id' => (int) $parcel['id'],
+
                 'cuzk_id' => $parcel['cuzk_id'],
+
                 'local_id' => $parcel['local_id'],
+
                 'label' => $parcel['label'],
-                'national_cadastral_reference' => $parcel['national_cadastral_reference'],
-                'area_value' => $parcel['area_value'] !== null ? (float) $parcel['area_value'] : null,
-                'zoning_name' => $parcel['zoning_name'],
-                'administrative_unit_name' => $parcel['administrative_unit_name'],
+
+                'national_cadastral_reference' =>
+                    $parcel['national_cadastral_reference'],
+
+                'area_value' => $parcel['area_value'] !== null
+                    ? (float) $parcel['area_value']
+                    : null,
+
+                'zoning_name' =>
+                    $parcel['zoning_name'],
+
+                'administrative_unit_name' =>
+                    $parcel['administrative_unit_name'],
             ],
         ];
     }

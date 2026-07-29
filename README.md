@@ -58,6 +58,66 @@ Výchozí hodnoty jsou:
 - host: `127.0.0.1`
 - port: `3306`
 
+#### Varianta A: `.env` soubor
+
+V kořeni projektu vytvořte soubor `.env` (nejlépe zkopírujte `.env.example`) s těmito hodnotami:
+
+```dotenv
+MAPA_PARCEL_DB=mapa_parcel
+MAPA_PARCEL_USER=mapa_parcel
+MAPA_PARCEL_PASSWORD=1111
+MAPA_PARCEL_HOST=127.0.0.1
+MAPA_PARCEL_PORT=3306
+```
+
+Pak spusťte:
+
+```powershell
+php scripts/bootstrap.php
+php -S 127.0.0.1:8000 -t public
+```
+
+Poznámka: `.env` se načítá automaticky v `scripts/bootstrap.php` i `public/api/parcels.php`.
+
+#### Varianta B: Windows PowerShell 
+
+Proměnné nastavte ve stejném terminálu, ve kterém pak spustíte bootstrap i web server:
+
+```powershell
+$env:MAPA_PARCEL_DB = "mapa_parcel"
+$env:MAPA_PARCEL_USER = "mapa_parcel"
+$env:MAPA_PARCEL_PASSWORD = "1111"
+$env:MAPA_PARCEL_HOST = "127.0.0.1"
+$env:MAPA_PARCEL_PORT = "3306"
+
+php scripts/bootstrap.php
+php -S 127.0.0.1:8000 -t public
+```
+
+Ověření, že proměnné jsou nastavené:
+
+```powershell
+Get-ChildItem Env:MAPA_PARCEL*
+```
+
+Poznámka: když otevřete nový terminál, proměnné nastavené přes `$env:` se ztratí a je potřeba je nastavit znovu.
+
+#### Varianta C: Trvalé nastavení v systému 
+
+```powershell
+setx MAPA_PARCEL_DB "mapa_parcel"
+setx MAPA_PARCEL_USER "mapa_parcel"
+setx MAPA_PARCEL_PASSWORD "1111"
+setx MAPA_PARCEL_HOST "127.0.0.1"
+setx MAPA_PARCEL_PORT "3306"
+```
+
+Po `setx` zavřete terminál a otevřete nový.
+
+Priorita konfigurace:
+1. Proměnné z prostředí / `.env`
+2. Výchozí hodnoty v kódu
+
 ## Rozhodnutí a poznámky
 
 - Zvolila jsem přístup „download once + import to DB“, protože to je stabilnější pro mapové rozhraní než každý pohyb mapy volat ČÚZK live.

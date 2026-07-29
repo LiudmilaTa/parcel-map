@@ -11,14 +11,14 @@ use ParcelMap\Services\CuzkParcelParser;
 use PDO;
 use PDOException;
 use proj4php\Proj4php;
+use Dotenv\Dotenv;
 
 $projectRoot = dirname(__DIR__);
 $storageDirectory = $projectRoot . '/storage/cuzk/final';
-$databaseName = getenv('MAPA_PARCEL_DB') ?: 'mapa_parcel';
-$username = getenv('MAPA_PARCEL_USER') ?: 'mapa_parcel';
-$password = getenv('MAPA_PARCEL_PASSWORD') ?: '1111';
-$host = getenv('MAPA_PARCEL_HOST') ?: '127.0.0.1';
-$port = (int) (getenv('MAPA_PARCEL_PORT') ?: '3306');
+
+if (file_exists($projectRoot . '/.env')) {
+    Dotenv::createImmutable($projectRoot)->safeLoad();
+}
 
 function getDatabaseConfig(): array
 {

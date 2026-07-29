@@ -6,7 +6,8 @@
     "minimum-stability": "stable",
     "require": {
         "php": "^8.4",
-        "proj4php/proj4php": "*"
+        "proj4php/proj4php": "*",
+        "vlucas/phpdotenv": "^5.6"
     },
     "autoload": {
         "psr-4": {

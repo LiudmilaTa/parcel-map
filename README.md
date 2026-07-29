@@ -26,23 +26,41 @@ Webová aplikace pro zobrazení katastrálních parcel v okolí okresu Jičín n
 
 ### 1. Instalace závislostí
 
-Na novém počítači spusťte: `php scripts/setup-dependencies.php`
+Na novém počítači spusťte: 
+
+```dotenv
+php scripts/setup-dependencies.php
+```
 
 ### 2. Spuštění inicializace
 
-Pro první spuštění spusťte: `php scripts/bootstrap.php`
+Pro první spuštění spusťte: 
+
+```dotenv
+php scripts/bootstrap.php
+```
 
 Skript vytvoří databázi, připraví tabulku `parcels` a načte data z ČÚZK.
 
 ### 3. Spuštění aplikace
 
-Po úspěšné inicializaci spusťte: `php -S 127.0.0.1:8000 -t public`
+Po úspěšné inicializaci spusťte: 
 
-Pak otevřete v prohlížeči: `http://127.0.0.1:8000/`
+```dotenv
+php -S 127.0.0.1:8000 -t public
+```
+
+Pak otevřete v prohlížeči: 
+
+http://127.0.0.1:8000
 
 ### 4. Smoke testy API
 
-Po spuštění web serveru můžete ověřit nejdůležitější endpointy: `php scripts/test-api-smoke.php`
+Po spuštění web serveru můžete ověřit nejdůležitější endpointy: 
+
+```dotenv
+php scripts/test-api-smoke.php
+```
 
 Testy kontrolují:
 - `GET /api/health.php`:
@@ -101,6 +119,7 @@ Poznámka: `.env` se načítá automaticky v `scripts/bootstrap.php` i `public/a
 
 Proměnné nastavte ve stejném terminálu, ve kterém pak spustíte bootstrap i web server.
 
+```powershell
 php scripts/bootstrap.php
 php -S 127.0.0.1:8000 -t public
 ```

@@ -1,64 +1,60 @@
-# Projektovy zapisnik
+# Projektový zápisník
 
-## Evidence casu
+## Evidence času
 
-| Ukol | Poznamka | Skutecny cas, min |
+| Úkol | Poznámka | Skutečný čas, min |
 | --- | --- | ---: |
-| Initial project setup | Priprava vyvojoveho prostredi, kontrola PHP a rozsireni, inicializace Git a zakladni struktury projektu. | 30 |
-| Nastaveni vyvojoveho prostredi | Instalace a overeni PHP 8.4, Composeru, Git a lokalniho PHP serveru. | 15 |
-| Nastaveni MariaDB | Vytvoreni databaze a uzivatele, konfigurace pripojeni a overeni komunikace PHP -> MariaDB. | 30 |
-| Analyza a pruzkum sluzeb CUZK | Overeni dostupnych WFS endpointu, atributu parcel a vhodne formy dat pro dalsi zpracovani. | 90 |
-| Zpracovani geometrie parcel | Parsovani polygonu, vnitrnich prstencu a prevod souradnic z EPSG:5514 do EPSG:4326. | 90 |
-| Implementace importu dat z CUZK | Priprava logiky pro stazeni XML dat a jejich nasledne zpracovani. | 120 |
-| Vyber rozsahu dat | Overeni testovaciho rozsahu nekolika realnych parcel z CUZK a urceni vhodneho rozsahu pro finalni aplikaci. | 30 |
-| Databazova vrstva | Implementace PDO pripojeni, migrace a repository vrstvy pro praci s parcelami. | 30 |
-| Navrh databazove struktury | Navrzeni tabulky `parcels` s unikatnim identifikatorem CUZK, atributy parcel a ulozenou geometrii. | 30 |
-| Import dat do MariaDB | Import testovacich parcel a nasledne rozsireny import finalniho datasetu. | 45 |
-| Validace importovanych dat | Overeni poctu zaznamu, spravnosti atributu, bounding boxu a ulozene geometrie. | 30 |
-| Implementace PHP API | Vytvoreni API endpointu pro nacitani parcel podle bounding boxu a vraceni GeoJSON. | 45 |
-| Implementace mapy | Vytvoreni interaktivni mapy pomoci Leaflet a nastaveni vychoziho centra pro oblast Jicina. | 30 |
-| Zobrazeni parcel na mape | Dynamicke nacitani parcel podle aktualniho pohledu na mape. | 30 |
-| Interakce s parcelami | Zvyrazneni parcel pri najeti mysi a zobrazeni popupu po kliknuti. | 15 |
-| Detail parcely | Omezeni nacitani dat pouze pro aktualni viewport a optimalizace front-endovych requestu. | 30 |
-| Necekany problem | Behem implementace se ukazalo, ze puvodni pristup k nacitani parcel pouze na zaklade bounding boxu nebyl z hlediska stability a presnosti dostatecne vhodny. Pri zmenach priblizeni a pohybu mapy dochazelo k nekompletnimu nacteni dat a k problemum s jejich spravnym vykreslenim. V dusledku toho byla upravena logika nacitani tak, aby byla lepe sladena s datovym modelem v databazi a s aktualnim viewportem mapy. Soucasne byly vyreseny problemy s pristupem k databazi, importem dat z CUZK a ladenim chovani mapy pri zoomu. | 150 |
-| Automatizovane testy | Byly implementovany zakladni automatizovane testy pro overeni API, pripojeni k databazi a klicovych modulu pro zpracovani dat. | 30 |
-| README a dokumentace | Priprava popisu projektu, instalacnich kroku a zakladni dokumentace pro uzivatele. | 90 |
+| Initial project setup | Příprava vývojového prostředí, kontrola PHP a rozšíření, inicializace Git a základní struktury projektu. | 30 |
+| Nastavení vývojového prostředí | Instalace a ověření PHP 8.4, Composeru, Git a lokálního PHP serveru. | 15 |
+| Nastavení MariaDB | Vytvoření databáze a uživatele, konfigurace připojení a ověření komunikace PHP -> MariaDB. | 30 |
+| Analýza a průzkum služeb ČÚZK | Ověření dostupných WFS endpointů, atributů parcel a vhodné formy dat pro další zpracování. | 90 |
+| Zpracování geometrie parcel | Parsování polygonů, vnitřních prstenců a převod souřadnic z EPSG:5514 do EPSG:4326. | 90 |
+| Implementace importu dat z ČÚZK | Příprava logiky pro stažení XML dat a jejich následné zpracování. | 120 |
+| Výběr rozsahu dat | Ověření testovacího rozsahu několika reálných parcel z ČÚZK a určení vhodného rozsahu pro finální aplikaci. | 30 |
+| Databázová vrstva | Implementace PDO připojení, migrace a repository vrstvy pro práci s parcelami. | 30 |
+| Návrh databázové struktury | Navržení tabulky `parcels` s unikátním identifikátorem ČÚZK, atributy parcel a uloženou geometrií. | 30 |
+| Import dat do MariaDB | Import testovacích parcel a následně rozšířený import finálního datasetu. | 45 |
+| Validace importovaných dat | Ověření počtu záznamů, správnosti atributů, bounding boxu a uložené geometrie. | 30 |
+| Implementace PHP API | Vytvoření API endpointu pro načítání parcel podle bounding boxu a vracení GeoJSON. | 45 |
+| Implementace mapy | Vytvoření interaktivní mapy pomocí Leaflet a nastavení výchozího centra pro oblast Jičína. | 30 |
+| Zobrazení parcel na mapě | Dynamické načítání parcel podle aktuálního pohledu na mapě. | 30 |
+| Interakce s parcelami | Zvýraznění parcel při najetí myši a zobrazení popupu po kliknutí. | 15 |
+| Detail parcely | Omezení načítání dat pouze pro aktuální viewport a optimalizace front-endových requestů. | 30 |
+| Nečekaný problém | Během implementace se ukázalo, že původní přístup k načítání parcel pouze na základě bounding boxu nebyl z hlediska stability a přesnosti dostatečně vhodný. Při změnách přiblížení a pohybu mapy docházelo k nekompletnímu načtení dat a k problémům s jejich správným vykreslením. V důsledku toho byla upravena logika načítání tak, aby byla lépe sladěna s datovým modelem v databázi a s aktuálním viewportem mapy. Současně byly vyřešeny problémy s přístupem k databázi, importem dat z ČÚZK a laděním chování mapy při zoomu. | 150 |
+| Automatizované testy | Byly implementovány základní automatizované testy pro ověření API, připojení k databázi a klíčových modulů pro zpracování dat. | 30 |
+| README a dokumentace | Příprava popisu projektu, instalačních kroků a základní dokumentace pro uživatele. | 90 |
 
-Projekt mi celkem zabral 16 hodin. Oproti odhadu 4-12 hodin se cas navysila hlavne kvuli reseni necekaneho problemu se stabilitou nacitani parcel pri zoomu a posunu mapy, uprave logiky viewportu a doladeni importu dat z CUZK i databazoveho napojeni.
+Projekt mi celkem zabral 16 hodin. Oproti odhadu 4–12 hodin se čas navýšil hlavně kvůli řešení nečekaného problému se stabilitou načítání parcel při zoomu a posunu mapy, úpravě logiky viewportu a doladění importu dat z ČÚZK i databázového napojení.
 
-## Kratky zapisnik projektu
+## Krátký zápisník projektu
 
-### Download once + import do DB misto live WFS dotazu
+### Download once + import do DB místo live WFS dotazu
 
-Mapa je interaktivni (zoom, posun), takze volat CUZK pri kazdem pohybu by bylo pomale a nespolehlive.
+Mapa je interaktivní (zoom, posun), takže volat ČÚZK při každém pohybu by bylo pomalé a nespolehlivé.
+Proto jsem data stáhla jednou, uložila do DB a aplikace čte z lokálních dat.
+Výhoda je rychlejší a stabilnější chování mapy.
 
-Proto jsem data stahla jednou, ulozila do DB a aplikace cte z lokalnich dat.
+### Co mě překvapilo
 
-Vyhoda je rychlejsi a stabilnejsi chovani mapy.
+Největší překvapení bylo, že načítat parcely jen podle bounding boxu nestačilo.
+Při zoomu a posunu mapy se někdy načetla neúplná data a vykreslení nebylo stabilní.
+Proto jsem upravila logiku načítání podle aktuálního viewportu a sladila ji s databází.
+Současně jsem dořešila i připojení k DB a stabilnější import dat z ČÚZK.
 
-### Co me prekvapilo
+### Co bych s více časem řešila jinak
 
-Nejvetsi prekvapeni bylo, ze nacitat parcely jen podle bounding boxu nestacilo.
+1. **Lepší data o parcelách**
 
-Pri zoomu a posunu mapy se nekdy nacetla neuplna data a vykresleni nebylo stabilni.
+Doplnila bych více údajů o parcelách (kde to jde), aby popup ukazoval co nejvíce informací.
 
-Proto jsem upravila logiku nacitani podle aktualniho viewportu a sladila ji s databazi.
+2. **Vyšší výkon při velké mapě**
 
-Soucasne jsem doresila i pripojeni k DB a stabilnejsi import dat z CUZK.
+Více bych ladila rychlost při zobrazení větší oblasti (cache, výkonnostní testy), aby mapa zůstala plynulá i při velkém množství parcel.
 
-### Co bych s vice casem resil jinak
+## Nejasnosti v zadání a má rozhodnutí
 
-1. **Lepsi data o parcelach**
-Doplnila bych vice udaju o parcelach (kde to jde), aby popup ukazoval co nejvice informaci.
-
-2. **Vyssi vykon pri velke mape**
-Vice bych ladila rychlost pri zobrazeni vetsi oblasti (cache, vykonnostni testy), aby mapa zustala plynula i pri velkem mnozstvi parcel.
-
-## Nejasnosti v zadani a ma rozhodnuti
-
-| Nejasnost | Co zadani nereklo | Me rozhodnuti | Proc |
+| Nejasnost | Co zadání neřeklo | Mé rozhodnutí | Proč |
 | --- | --- | --- | --- |
-| **Rozsah dat** | "Okres Jicin" je vagni | Zvolila jsem 4 katastralni uzemi: Jicin, Miletin, Sobotka, Stara Paka | Jsou to realna uzemi bez hranice okresu, dobra pro demo |
-| **Mapa - startovni zoom** | Neuvedeno | Nastavila jsem [49.6, 15.3] (Jicin), zoom 11 | Vhodne pro videni vsech 4 uzemi najednou |
-| **Interakce s parcelou** | Pouze "zobrazit" | Pridala jsem click -> popup s detaily, hover -> zvyrazneni | Standard UX pro mapove aplikace |
-
+| **Rozsah dat** | "Okres Jičín" je vágní | Zvolila jsem 4 katastrální území: Jičín, Miletín, Sobotka, Stará Paka | Jsou to reálná území bez hranice okresu, dobrá pro demo |
+| **Mapa - startovní zoom** | Neuvedeno | Nastavila jsem [49.6, 15.3] (Jičín), zoom 11 | Vhodné pro vidění všech 4 území najednou |
+| **Interakce s parcelou** | Pouze "zobrazit" | Přidala jsem click -> popup s detaily, hover -> zvýraznění | Standard UX pro mapové aplikace |

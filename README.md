@@ -13,7 +13,7 @@ Webová aplikace pro zobrazení katastrálních parcel v okolí okresu Jičín n
 - Pro každé území se nejdříve stáhne jeho zoning a z jeho obálky se vypočítá oblast pro načtení parcel.
 - Data se uloží do lokální databáze a z ní se pak vykreslují na mapě.
 
-- Evidence času a odpovědi k projektu: [Projektový zápisník](PROJECT_REPORT.md)
+#### Evidence času a odpovědi k projektu: [Projektový zápisník](PROJECT_REPORT.md)
 
 ## Požadavky
 
@@ -26,26 +26,23 @@ Webová aplikace pro zobrazení katastrálních parcel v okolí okresu Jičín n
 
 ### 1. Instalace závislostí
 
-Na novém počítači spusťte: - `php scripts/setup-dependencies.php`
+Na novém počítači spusťte: `php scripts/setup-dependencies.php`
 
 ### 2. Spuštění inicializace
 
-Pro první spuštění spusťte: - `php scripts/bootstrap.php`
+Pro první spuštění spusťte: `php scripts/bootstrap.php`
 
 Skript vytvoří databázi, připraví tabulku `parcels` a načte data z ČÚZK.
 
 ### 3. Spuštění aplikace
 
-Po úspěšné inicializaci spusťte:
-- `php -S 127.0.0.1:8000 -t public`
+Po úspěšné inicializaci spusťte: `php -S 127.0.0.1:8000 -t public`
 
-Pak otevřete v prohlížeči:
-- `http://127.0.0.1:8000/`
+Pak otevřete v prohlížeči: `http://127.0.0.1:8000/`
 
 ### 4. Smoke testy API
 
-Po spuštění web serveru můžete ověřit nejdůležitější endpointy:
-- `php scripts/test-api-smoke.php`
+Po spuštění web serveru můžete ověřit nejdůležitější endpointy: `php scripts/test-api-smoke.php`
 
 Testy kontrolují:
 - `GET /api/health.php`:

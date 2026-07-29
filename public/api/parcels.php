@@ -8,6 +8,25 @@ use Dotenv\Dotenv;
 use ParcelMap\Database\Connection;
 use ParcelMap\Repositories\ParcelRepository;
 
+function resolveEnvValue(string $key, ?string $fallbackKey = null, string $default = ''): string
+{
+    $value = $_ENV[$key] ?? $_SERVER[$key] ?? getenv($key) ?: '';
+
+    if ($value !== '') {
+        return $value;
+    }
+
+    if ($fallbackKey !== null && $fallbackKey !== '') {
+        $fallbackValue = $_ENV[$fallbackKey] ?? $_SERVER[$fallbackKey] ?? getenv($fallbackKey) ?: '';
+
+        if ($fallbackValue !== '') {
+            return $fallbackValue;
+        }
+    }
+
+    return $default;
+}
+
 header('Content-Type: application/json; charset=utf-8');
 
 try {
@@ -17,11 +36,11 @@ try {
         Dotenv::createImmutable($projectRoot)->safeLoad();
     }
 
-    $databaseName = getenv('MAPA_PARCEL_DB') ?: 'mapa_parcel';
-    $username = getenv('MAPA_PARCEL_USER') ?: 'mapa_parcel';
-    $password = getenv('MAPA_PARCEL_PASSWORD') ?: '1111';
-    $host = getenv('MAPA_PARCEL_HOST') ?: '127.0.0.1';
-    $port = (int) (getenv('MAPA_PARCEL_PORT') ?: '3306');
+    $databaseName = resolveEnvValue('MAPA_PARCEL_DB', 'DB_NAME', 'mapa_parcel');
+    $username = resolveEnvValue('MAPA_PARCEL_USER', 'DB_USER', 'mapa_parcel');
+    $password = resolveEnvValue('MAPA_PARCEL_PASSWORD', 'DB_PASSWORD', '1111');
+    $host = resolveEnvValue('MAPA_PARCEL_HOST', 'DB_HOST', '127.0.0.1');
+    $port = (int) resolveEnvValue('MAPA_PARCEL_PORT', 'DB_PORT', '3306');
 
     $connection = new Connection(
         $host,

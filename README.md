@@ -42,7 +42,35 @@ Po úspěšné inicializaci spusťte:
 Pak otevřete v prohlížeči:
 - `http://127.0.0.1:8000/`
 
-### 4. Pokud chcete změnit připojení k databázi
+### 4. Smoke testy API
+
+Po spuštění web serveru můžete ověřit nejdůležitější endpointy:
+- `php scripts/test-api-smoke.php`
+
+Testy kontrolují:
+- `GET /api/health.php`:
+  endpoint musí vrátit HTTP `200`, `status = ok`, `database.status = ok` a počet parcel `parcels.count > 0`.
+- `GET /api/zoning.php`:
+  endpoint musí vrátit HTTP `200` a validní GeoJSON (`type = FeatureCollection`, `features` je pole a není prázdné).
+- `GET /api/parcels.php`:
+  endpoint musí vrátit HTTP `200` a validní GeoJSON parcel pro testovací oblast (`bbox`) a vybraný `zoning_names`.
+- Validace chybného `bbox`:
+  test schválně volá neplatný `bbox` (např. jen 3 čísla místo 4) a očekává HTTP `400` s chybou `Invalid bbox format.`.
+
+`bbox` znamená obdélník v mapě ve formátu `minX,minY,maxX,maxY`:
+- `minX` = západní hranice
+- `minY` = jižní hranice
+- `maxX` = východní hranice
+- `maxY` = severní hranice
+
+Pokud aplikace běží na jiné adrese/portu, nastavte před testem base URL:
+
+```powershell
+$env:PARCEL_MAP_BASE_URL = "http://127.0.0.1:8010"
+php scripts/test-api-smoke.php
+```
+
+### 5. Pokud chcete změnit připojení k databázi
 
 Můžete nastavit tyto proměnné prostředí:
 - `MAPA_PARCEL_DB`

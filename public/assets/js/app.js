@@ -706,8 +706,11 @@ function registerMapEvents() {
 // App bootstrap.
 function initializeApp() {
     registerMapEvents();
-    loadZonings();
-    scheduleLoadParcels();
+
+    loadZonings()
+        .finally(() => {
+            scheduleLoadParcels();
+        });
 }
 
 initializeApp();

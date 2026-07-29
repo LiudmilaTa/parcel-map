@@ -8,6 +8,8 @@ use ParcelMap\Database\Connection;
 use ParcelMap\Repositories\ParcelRepository;
 use ParcelMap\Services\CoordinateTransformService;
 use ParcelMap\Services\CuzkParcelParser;
+use PDO;
+use PDOException;
 use proj4php\Proj4php;
 
 $projectRoot = dirname(__DIR__);
@@ -17,6 +19,86 @@ $username = getenv('MAPA_PARCEL_USER') ?: 'mapa_parcel';
 $password = getenv('MAPA_PARCEL_PASSWORD') ?: '1111';
 $host = getenv('MAPA_PARCEL_HOST') ?: '127.0.0.1';
 $port = (int) (getenv('MAPA_PARCEL_PORT') ?: '3306');
+
+function getDatabaseConfig(): array
+{
+    return [
+        'database' => getenv('MAPA_PARCEL_DB') ?: 'mapa_parcel',
+        'username' => getenv('MAPA_PARCEL_USER') ?: 'mapa_parcel',
+        'password' => getenv('MAPA_PARCEL_PASSWORD') ?: '1111',
+        'host' => getenv('MAPA_PARCEL_HOST') ?: '127.0.0.1',
+        'port' => (int) (getenv('MAPA_PARCEL_PORT') ?: '3306'),
+    ];
+}
+
+function printDatabaseConfig(array $config): void
+{
+    $passwordState = $config['password'] === '' ? '(empty)' : '[set]';
+    echo 'Database config: host=' . $config['host'] . ', port=' . $config['port'] . ', database=' . $config['database'] . ', user=' . $config['username'] . ', password=' . $passwordState . PHP_EOL;
+    echo 'Override with MAPA_PARCEL_HOST, MAPA_PARCEL_PORT, MAPA_PARCEL_DB, MAPA_PARCEL_USER, MAPA_PARCEL_PASSWORD.' . PHP_EOL;
+}
+
+function createAdminConnection(string $host, int $port, string $username, string $password): PDO
+{
+    $dsn = sprintf('mysql:host=%s;port=%d;charset=utf8mb4', $host, $port);
+    $candidates = [];
+
+    $adminUser = getenv('MAPA_PARCEL_ADMIN_USER') ?: getenv('MAPA_PARCEL_ROOT_USER') ?: 'root';
+    $adminPassword = getenv('MAPA_PARCEL_ADMIN_PASSWORD') ?: getenv('MAPA_PARCEL_ROOT_PASSWORD') ?: getenv('MYSQL_ROOT_PASSWORD') ?: getenv('MARIADB_ROOT_PASSWORD') ?: '';
+
+    if ($adminUser !== '') {
+        $candidates[] = [$adminUser, $adminPassword];
+    }
+
+    if ($adminUser !== 'root') {
+        $candidates[] = ['root', $adminPassword];
+    }
+
+    $candidates[] = [$username, $password];
+
+    $lastException = null;
+    foreach ($candidates as [$candidateUser, $candidatePassword]) {
+        try {
+            return new PDO($dsn, $candidateUser, $candidatePassword, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            ]);
+        } catch (PDOException $exception) {
+            $lastException = $exception;
+        }
+    }
+
+    throw $lastException ?? new RuntimeException('Unable to connect to MySQL server for bootstrap.');
+}
+
+function ensureAppDatabaseUser(PDO $adminConnection, string $database, string $username, string $password, string $host): void
+{
+    if ($username === '') {
+        return;
+    }
+
+    $hostPattern = in_array($host, ['127.0.0.1', 'localhost'], true) ? 'localhost' : '%';
+    $escapedUser = str_replace("'", "''", $username);
+    $escapedHost = str_replace("'", "''", $hostPattern);
+    $escapedPassword = str_replace("'", "''", $password);
+
+    try {
+        $adminConnection->exec("CREATE USER IF NOT EXISTS '{$escapedUser}'@'{$escapedHost}' IDENTIFIED BY '{$escapedPassword}'");
+    } catch (PDOException $exception) {
+        if (stripos($exception->getMessage(), 'already exists') === false) {
+            throw $exception;
+        }
+    }
+
+    try {
+        $adminConnection->exec("GRANT ALL PRIVILEGES ON `{$database}`.* TO '{$escapedUser}'@'{$escapedHost}'");
+        $adminConnection->exec('FLUSH PRIVILEGES');
+    } catch (PDOException $exception) {
+        if (stripos($exception->getMessage(), 'does not exist') === false && stripos($exception->getMessage(), 'not exist') === false) {
+            throw $exception;
+        }
+    }
+}
 
 function ensureDirectory(string $path): void
 {
@@ -31,15 +113,8 @@ function ensureDirectory(string $path): void
 
 function ensureDatabaseAndTable(string $host, int $port, string $database, string $username, string $password): void
 {
-    $adminConnection = new PDO(
-        sprintf('mysql:host=%s;port=%d;charset=utf8mb4', $host, $port),
-        $username,
-        $password,
-        [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        ]
-    );
+    $adminConnection = createAdminConnection($host, $port, $username, $password);
+    ensureAppDatabaseUser($adminConnection, $database, $username, $password, $host);
 
     $adminConnection->exec(sprintf('CREATE DATABASE IF NOT EXISTS `%s` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci', $database));
 
@@ -267,10 +342,19 @@ function downloadAndImportData(string $projectRoot, string $storageDirectory, st
 }
 
 try {
+    $config = getDatabaseConfig();
+    $databaseName = $config['database'];
+    $username = $config['username'];
+    $password = $config['password'];
+    $host = $config['host'];
+    $port = $config['port'];
+
+    printDatabaseConfig($config);
     ensureDatabaseAndTable($host, $port, $databaseName, $username, $password);
     downloadAndImportData($projectRoot, $storageDirectory, $host, $port, $databaseName, $username, $password);
     echo 'Bootstrap completed successfully.' . PHP_EOL;
 } catch (Throwable $exception) {
     fwrite(STDERR, 'Bootstrap failed: ' . $exception->getMessage() . PHP_EOL);
+    fwrite(STDERR, 'If the database user does not exist yet, create it manually or provide MAPA_PARCEL_ADMIN_USER / MAPA_PARCEL_ADMIN_PASSWORD.' . PHP_EOL);
     exit(1);
 }

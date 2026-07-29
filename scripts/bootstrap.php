@@ -15,17 +15,29 @@ $projectRoot = dirname(__DIR__);
 $storageDirectory = $projectRoot . '/storage/cuzk/final';
 
 if (file_exists($projectRoot . '/.env')) {
-    Dotenv::createImmutable($projectRoot)->safeLoad();
+    $dotenv = Dotenv::createImmutable($projectRoot);
+    $dotenv->load(); // Load into $_ENV and $_SERVER
 }
 
 function getDatabaseConfig(): array
 {
+    $getEnvValue = static function (string $key, string $alternateKey = '', string $default = ''): string {
+        $value = $_ENV[$key] ?? $_SERVER[$key] ?? getenv($key) ?: '';
+        if ($value !== '') {
+            return $value;
+        }
+        if ($alternateKey !== '') {
+            return $_ENV[$alternateKey] ?? $_SERVER[$alternateKey] ?? getenv($alternateKey) ?: $default;
+        }
+        return $default;
+    };
+
     return [
-        'database' => getenv('MAPA_PARCEL_DB') ?: 'mapa_parcel',
-        'username' => getenv('MAPA_PARCEL_USER') ?: 'mapa_parcel',
-        'password' => getenv('MAPA_PARCEL_PASSWORD') ?: '1111',
-        'host' => getenv('MAPA_PARCEL_HOST') ?: '127.0.0.1',
-        'port' => (int) (getenv('MAPA_PARCEL_PORT') ?: '3306'),
+        'database' => $getEnvValue('MAPA_PARCEL_DB', 'DB_NAME', 'mapa_parcel'),
+        'username' => $getEnvValue('MAPA_PARCEL_USER', 'DB_USER', 'mapa_parcel'),
+        'password' => $getEnvValue('MAPA_PARCEL_PASSWORD', 'DB_PASSWORD', '1111'),
+        'host' => $getEnvValue('MAPA_PARCEL_HOST', 'DB_HOST', '127.0.0.1'),
+        'port' => (int) $getEnvValue('MAPA_PARCEL_PORT', 'DB_PORT', '3306'),
     ];
 }
 
@@ -39,57 +51,41 @@ function printDatabaseConfig(array $config): void
 function createAdminConnection(string $host, int $port, string $username, string $password): PDO
 {
     $dsn = sprintf('mysql:host=%s;port=%d;charset=utf8mb4', $host, $port);
-    $candidates = [];
 
-    $envAdminUser = getenv('MAPA_PARCEL_ADMIN_USER') ?: '';
+    // Try env variables for admin
+    $envAdminUser = getenv('MAPA_PARCEL_ADMIN_USER') ?: 'root';
     $envAdminPassword = getenv('MAPA_PARCEL_ADMIN_PASSWORD') ?: '';
 
-    if ($envAdminUser !== '') {
-        $candidates[] = [$envAdminUser, $envAdminPassword];
+    // First try with default credentials
+    try {
+        $pdo = new \PDO($dsn, $envAdminUser, $envAdminPassword, [
+            \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
+            \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
+        ]);
+        echo "Connected as: {$envAdminUser}" . PHP_EOL;
+        return $pdo;
+    } catch (\Throwable $exception) {
+        // Default credentials didn't work, ask for password
     }
 
-    $candidates[] = ['root', ''];
-    $candidates[] = ['root', 'root'];
-    $candidates[] = ['root', 'password'];
-    $candidates[] = ['root', 'mysql'];
-    $candidates[] = ['root', '123456'];
-    $candidates[] = ['admin', ''];
-    $candidates[] = ['admin', 'admin'];
-    $candidates[] = ['administrator', ''];
-
-    $lastException = null;
-    foreach ($candidates as [$candidateUser, $candidatePassword]) {
-        try {
-            $pdo = new \PDO($dsn, $candidateUser, $candidatePassword, [
-                \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
-                \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
-            ]);
-            echo "Connected as: {$candidateUser}" . PHP_EOL;
-            return $pdo;
-        } catch (\Throwable $exception) {
-            $lastException = $exception;
-        }
-    }
-
-    echo PHP_EOL . "Cannot connect with standard credentials." . PHP_EOL;
-    echo "Enter your MariaDB/MySQL root password (or press Enter to skip): ";
+    // Ask user for password
+    echo PHP_EOL . "Cannot connect with default credentials." . PHP_EOL;
+    echo "Enter your MariaDB/MySQL root password: ";
     
     $userPassword = trim(fgets(STDIN));
     
-    if ($userPassword !== '') {
-        try {
-            $pdo = new \PDO($dsn, 'root', $userPassword, [
-                \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
-                \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
-            ]);
-            echo "Connected as: root" . PHP_EOL;
-            return $pdo;
-        } catch (\Throwable $exception) {
-            $lastException = $exception;
-        }
+    try {
+        $pdo = new \PDO($dsn, 'root', $userPassword, [
+            \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
+            \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
+        ]);
+        echo "Connected as: root" . PHP_EOL;
+        return $pdo;
+    } catch (\Throwable $exception) {
+        // Even with password it didn't work
     }
 
-
+    // If all failed
     echo PHP_EOL . "ERROR: Cannot connect to MySQL/MariaDB database." . PHP_EOL;
     echo "Please ensure:" . PHP_EOL;
     echo "  1. MariaDB/MySQL server is running" . PHP_EOL;
@@ -106,7 +102,7 @@ function createAdminConnection(string $host, int $port, string $username, string
     echo "    EXIT;" . PHP_EOL;
     echo PHP_EOL;
 
-    throw $lastException ?? new RuntimeException('Unable to connect to MySQL server.');
+    throw new RuntimeException('Unable to connect to MySQL server.');
 }
 
 function ensureAppDatabaseUser(PDO $adminConnection, string $database, string $username, string $password, string $host): void
@@ -120,26 +116,34 @@ function ensureAppDatabaseUser(PDO $adminConnection, string $database, string $u
     $escapedHost = str_replace("'", "''", $hostPattern);
     $escapedPassword = str_replace("'", "''", $password);
 
-    // Pokud nemám CREATE USER práva, tak se neboj — zkusím jen GRANT
+    // Create user or update password if exists
     try {
         $adminConnection->exec("CREATE USER IF NOT EXISTS '{$escapedUser}'@'{$escapedHost}' IDENTIFIED BY '{$escapedPassword}'");
         echo "User '{$username}'@'{$hostPattern}' created or already exists." . PHP_EOL;
-    } catch (Throwable $exception) {
+    } catch (\Throwable $exception) {
         if (stripos($exception->getMessage(), '1227') !== false || stripos($exception->getMessage(), 'CREATE USER') !== false) {
-            // Nemám práva na CREATE USER, ale zkusím GRANT — možná uživatel už existuje
+            // No CREATE USER privilege, but try GRANT - user may already exist
             echo "Skipping user creation (no CREATE USER privilege), attempting to grant privileges..." . PHP_EOL;
         } else {
             throw $exception;
         }
     }
 
-    // Zkusit GRANT práva
+    // Try to update password (in case user already existed)
+    try {
+        $adminConnection->exec("ALTER USER '{$escapedUser}'@'{$escapedHost}' IDENTIFIED BY '{$escapedPassword}'");
+        echo "User password updated." . PHP_EOL;
+    } catch (\Throwable $exception) {
+        // If ALTER USER fails, continue - user may not have password set
+    }
+
+    // Try to grant privileges
     try {
         $adminConnection->exec("GRANT ALL PRIVILEGES ON `{$database}`.* TO '{$escapedUser}'@'{$escapedHost}'");
         $adminConnection->exec('FLUSH PRIVILEGES');
         echo "Privileges granted to '{$username}'@'{$hostPattern}'." . PHP_EOL;
-    } catch (Throwable $exception) {
-        // Pokud se to nepodaří, ignoruj — uživatel možná už existuje s právy
+    } catch (\Throwable $exception) {
+        // If it fails, ignore - user may already have privileges
         if (stripos($exception->getMessage(), '1227') !== false) {
             echo "Skipping privilege grant (no privilege to grant)." . PHP_EOL;
         } else {
@@ -161,11 +165,13 @@ function ensureDirectory(string $path): void
 
 function ensureDatabaseAndTable(string $host, int $port, string $database, string $username, string $password): void
 {
+    // First try to connect as application user (if already exists with privileges)
     try {
         $connection = new Connection($host, $port, $database, $username, $password);
         $pdo = $connection->getPdo();
         echo "Connected as application user '{$username}' — database and user already exist." . PHP_EOL;
         
+        // Verify table exists
         $migrationFile = $GLOBALS['projectRoot'] . '/database/migrations/001_create_parcels_table.sql';
         if (file_exists($migrationFile)) {
             $sql = file_get_contents($migrationFile);
@@ -175,20 +181,23 @@ function ensureDatabaseAndTable(string $host, int $port, string $database, strin
             }
         }
         return;
-    } catch (Throwable $e) {
+    } catch (\Throwable $e) {
+        // Application user cannot connect - need admin
         echo "Application user connection failed, attempting admin setup..." . PHP_EOL;
     }
 
+    // If direct connection fails, use admin
     $adminConnection = createAdminConnection($host, $port, $username, $password);
     ensureAppDatabaseUser($adminConnection, $database, $username, $password, $host);
 
     try {
         $adminConnection->exec(sprintf('CREATE DATABASE IF NOT EXISTS `%s` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci', $database));
         echo "Database '{$database}' is ready." . PHP_EOL;
-    } catch (Throwable $e) {
+    } catch (\Throwable $e) {
         echo "Warning: Could not create database (may already exist): " . $e->getMessage() . PHP_EOL;
     }
 
+    // Now try to connect as application user to create table
     try {
         $connection = new Connection($host, $port, $database, $username, $password);
         $pdo = $connection->getPdo();
@@ -207,7 +216,7 @@ function ensureDatabaseAndTable(string $host, int $port, string $database, strin
 
         $pdo->exec($sql);
         echo "Table 'parcels' is ready." . PHP_EOL;
-    } catch (Throwable $e) {
+    } catch (\Throwable $e) {
         throw new RuntimeException("Failed to set up table: " . $e->getMessage());
     }
 }
@@ -430,7 +439,7 @@ try {
 } catch (Throwable $exception) {
     fwrite(STDERR, 'Bootstrap failed: ' . $exception->getMessage() . PHP_EOL . PHP_EOL);
     fwrite(STDERR, 'Řešení:' . PHP_EOL);
-    fwrite(STDERR, '1. Ověřte, že MariaDB je spuštěný: mariadb -u root -p' . PHP_EOL);
+    fwrite(STDERR, '1. Ověřte, že MySQL/MariaDB je spuštěný: mysql -u root' . PHP_EOL);
     fwrite(STDERR, '2. Pokud máte heslo, nastavte environment proměnnou: $env:MAPA_PARCEL_ADMIN_PASSWORD = "vase_heslo"' . PHP_EOL);
     fwrite(STDERR, '3. Vytvořte uživatele a databázi ručně (viz níže).' . PHP_EOL . PHP_EOL);
     fwrite(STDERR, 'Manuální setup v MySQL:' . PHP_EOL);
